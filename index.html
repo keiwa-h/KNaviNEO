@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KNaviNEO - 週間勤怠・予定管理</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .day-col { min-height: 550px; }
+    .today-highlight { background-color: #f0f9ff; border-top: 4px solid #0284c7; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+  <!-- ヘッダー -->
+  <header class="bg-indigo-900 text-white shadow-md sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-calendar-check text-2xl text-indigo-300"></i>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide">KNaviNEO</h1>
+          <p class="text-xs text-indigo-200">週間勤怠・予定管理システム</p>
+        </div>
+      </div>
+
+      <!-- 操作ボタン群（管理者権限で切り替え） -->
+      <div class="flex items-center space-x-2">
+        <button id="btn-manage-members" class="admin-only hidden bg-indigo-800 hover:bg-indigo-700 text-indigo-100 text-sm px-3 py-1.5 rounded-lg border border-indigo-600 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-users"></i>
+          <span>従業員マスター</span>
+        </button>
+        <button id="btn-add-schedule" class="admin-only hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm px-4 py-1.5 rounded-lg shadow transition flex items-center gap-1">
+          <i class="fa-solid fa-plus"></i>
+          <span>予定を登録</span>
+        </button>
+
+        <!-- Googleログイン / ログアウトボタン -->
+        <button id="btn-auth" class="bg-white/10 hover:bg-white/20 text-white text-sm px-3 py-1.5 rounded-lg border border-indigo-400/30 transition flex items-center gap-2">
+          <i class="fa-solid fa-user-lock"></i>
+          <span id="auth-btn-text">管理者ログイン</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full flex flex-col gap-6">
+
+    <!-- ナビゲーション & 種別凡例 -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+      
+      <!-- 週切り替え -->
+      <div class="flex items-center space-x-2 w-full md:w-auto justify-between md:justify-start">
+        <button id="btn-prev-week" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
+          <i class="fa-solid fa-chevron-left"></i> 前週
+        </button>
+        <button id="btn-today" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-medium text-sm hover:bg-indigo-100 rounded-lg border border-indigo-200 transition">
+          今週
+        </button>
+        <button id="btn-next-week" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg border border-slate-200 transition">
+          次週 <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <span id="current-week-range" class="font-bold text-slate-700 text-base ml-2"></span>
+      </div>
+
+      <!-- フィルター・種別凡例 -->
+      <div class="flex flex-wrap items-center gap-1.5 text-xs w-full md:w-auto justify-start md:justify-end">
+        <span class="text-slate-400 font-medium mr-1">種別:</span>
+        <span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">年休</span>
+        <span class="px-2 py-0.5 rounded bg-orange-100 text-orange-800 border border-orange-200">遅刻</span>
+        <span class="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 border border-yellow-200">中抜</span>
+        <span class="px-2 py-0.5 rounded bg-lime-100 text-lime-800 border border-lime-200">早退</span>
+        <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">代休</span>
+        <span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300">忌引</span>
+        <span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 border border-teal-200">看護休暇</span>
+        <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">介護休暇</span>
+        <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">出張</span>
+      </div>
+
+    </div>
+
+    <!-- フィルターバー（従業員フィルター） -->
+    <div class="flex items-center gap-3 bg-white p-3 rounded-lg border border-slate-200 text-sm">
+      <i class="fa-solid fa-filter text-slate-400"></i>
+      <span class="font-medium text-slate-600">表示絞り込み:</span>
+      <select id="filter-member" class="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+        <option value="">全員を表示</option>
+      </select>
+    </div>
+
+    <!-- 週間カレンダー (7列) -->
+    <div class="grid grid-cols-1 md:grid-cols-7 gap-3" id="calendar-grid">
+      <!-- JavaScriptで動的生成 -->
+    </div>
+
+  </main>
+
+  <!-- フッター -->
+  <footer class="bg-slate-100 border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+    <p>KNaviNEO &copy; 勤怠・予定共有システム</p>
+  </footer>
+
+  <!-- モーダル: 予定の登録・編集 -->
+  <div id="modal-schedule" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden border border-slate-200">
+      <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center">
+        <h3 id="modal-title" class="font-bold text-lg">予定の登録</h3>
+        <button id="btn-close-modal" class="text-indigo-200 hover:text-white text-xl">&times;</button>
+      </div>
+
+      <form id="form-schedule" class="p-6 space-y-4">
+        <input type="hidden" id="schedule-id">
+
+        <!-- 対象従業員（複数選択チェックボックス） -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">対象従業員 <span class="text-rose-500">* (複数選択可)</span></label>
+          <div id="member-checkboxes-container" class="border border-slate-300 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1 bg-slate-50 custom-scrollbar">
+            <!-- JavaScriptで動的生成 -->
+          </div>
+        </div>
+
+        <!-- 日付選択 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">日付 <span class="text-rose-500">*</span></label>
+          <input type="date" id="input-date" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <!-- 種別 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">種別 <span class="text-rose-500">*</span></label>
+          <select id="input-type" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <option value="年休">年休</option>
+            <option value="遅刻">遅刻</option>
+            <option value="中抜">中抜</option>
+            <option value="早退">早退</option>
+            <option value="代休">代休</option>
+            <option value="忌引">忌引</option>
+            <option value="看護休暇">看護休暇</option>
+            <option value="介護休暇">介護休暇</option>
+            <option value="出張">出張</option>
+          </select>
+        </div>
+
+        <!-- 時間（終日フラグ／時間指定） -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-semibold text-slate-600">時間指定</label>
+            <label class="flex items-center text-xs text-slate-600 cursor-pointer">
+              <input type="checkbox" id="input-all-day" checked class="mr-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+              終日
+            </label>
+          </div>
+          <div id="time-inputs" class="grid grid-cols-2 gap-2 hidden">
+            <input type="time" id="input-start-time" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <input type="time" id="input-end-time" class="border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+
+        <!-- 備考・行き先 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">備考・訪問先など</label>
+          <input type="text" id="input-note" placeholder="例: 田中商事様へ直行" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <!-- ボタン類 -->
+        <div class="pt-4 flex justify-between items-center border-t border-slate-100">
+          <button type="button" id="btn-delete-schedule" class="text-rose-600 hover:text-rose-800 text-sm font-medium hidden">
+            <i class="fa-solid fa-trash mr-1"></i> 削除
+          </button>
+          <div class="flex space-x-2 ml-auto">
+            <button type="button" id="btn-cancel-schedule" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm rounded-lg transition">キャンセル</button>
+            <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow transition">保存する</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- モーダル: 従業員マスター管理 -->
+  <div id="modal-members" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden border border-slate-200">
+      <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center">
+        <h3 class="font-bold text-lg">従業員マスター管理</h3>
+        <button id="btn-close-members-modal" class="text-indigo-200 hover:text-white text-xl">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- 新規追加フォーム -->
+        <form id="form-add-member" class="flex gap-2">
+          <input type="text" id="input-new-member" required placeholder="新しい従業員名を入力" class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition shrink-0">追加</button>
+        </form>
+
+        <!-- メンバー一覧 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-2">登録済みメンバー一覧</label>
+          <ul id="member-list" class="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-60 overflow-y-auto custom-scrollbar">
+            <!-- JavaScriptで動的生成 -->
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (v10 JS Modules) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Firebase 設定情報（組み込み済み）
+    const firebaseConfig = {
+      apiKey: "AIzaSyDy7e0BxnoWHn6CR-hnafy9LBTGOUopiAE",
+      authDomain: "knavineo.firebaseapp.com",
+      projectId: "knavineo",
+      storageBucket: "knavineo.firebasestorage.app",
+      messagingSenderId: "595683059409",
+      appId: "1:595683059409:web:3cf6bf043a17498ff3c7f0"
+    };
+
+    // Firebase 初期化
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const googleProvider = new GoogleAuthProvider();
+
+    // 種別に応じたスタイル定義
+    const TYPE_STYLES = {
+      '年休': { bg: 'bg-rose-50', border: 'border-rose-200', badgeBg: 'bg-rose-100', badgeText: 'text-rose-800' },
+      '遅刻': { bg: 'bg-orange-50', border: 'border-orange-200', badgeBg: 'bg-orange-100', badgeText: 'text-orange-800' },
+      '中抜': { bg: 'bg-yellow-50', border: 'border-yellow-200', badgeBg: 'bg-yellow-100', badgeText: 'text-yellow-800' },
+      '早退': { bg: 'bg-lime-50', border: 'border-lime-200', badgeBg: 'bg-lime-100', badgeText: 'text-lime-800' },
+      '代休': { bg: 'bg-amber-50', border: 'border-amber-200', badgeBg: 'bg-amber-100', badgeText: 'text-amber-800' },
+      '忌引': { bg: 'bg-slate-100', border: 'border-slate-300', badgeBg: 'bg-slate-200', badgeText: 'text-slate-800' },
+      '看護休暇': { bg: 'bg-teal-50', border: 'border-teal-200', badgeBg: 'bg-teal-100', badgeText: 'text-teal-800' },
+      '介護休暇': { bg: 'bg-purple-50', border: 'border-purple-200', badgeBg: 'bg-purple-100', badgeText: 'text-purple-800' },
+      '出張': { bg: 'bg-blue-50', border: 'border-blue-200', badgeBg: 'bg-blue-100', badgeText: 'text-blue-800' }
+    };
+
+    const DEFAULT_MEMBERS = ['山田 太郎', '佐藤 花子', '田中 健二', '鈴木 一郎'];
+
+    // アプリ状態
+    let currentSunday = getSunday(new Date());
+    let members = [];
+    let schedules = [];
+    let currentUser = null;
+
+    // --- 日付ヘルパー関数 ---
+    function getSunday(d) {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = date.getDate() - day;
+      return new Date(date.setDate(diff));
+    }
+
+    function formatDate(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // --- Authentication（認証状態監視） ---
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      const btnAuthText = document.getElementById('auth-btn-text');
+      const adminButtons = document.querySelectorAll('.admin-only');
+
+      if (user) {
+        btnAuthText.textContent = `${user.displayName || '管理者'} (ログアウト)`;
+        adminButtons.forEach(btn => btn.classList.remove('hidden'));
+      } else {
+        btnAuthText.textContent = '管理者ログイン';
+        adminButtons.forEach(btn => btn.classList.add('hidden'));
+      }
+      renderCalendar();
+    });
+
+    document.getElementById('btn-auth').addEventListener('click', () => {
+      if (currentUser) {
+        if (confirm('ログアウトしますか？')) {
+          signOut(auth);
+        }
+      } else {
+        signInWithPopup(auth, googleProvider).catch((error) => {
+          alert(`ログインエラー: ${error.message}`);
+        });
+      }
+    });
+
+    // --- Firestore リアルタイムリスナー設定 ---
+    
+    // 従業員マスターリスナー
+    onSnapshot(collection(db, 'members'), (snapshot) => {
+      members = snapshot.docs.map(doc => doc.data().name);
+      if (members.length === 0 && currentUser) {
+        // 初期データ投入
+        DEFAULT_MEMBERS.forEach(name => {
+          setDoc(doc(db, 'members', name), { name });
+        });
+      } else {
+        renderMemberOptions();
+      }
+    });
+
+    // 予定データリスナー
+    onSnapshot(collection(db, 'schedules'), (snapshot) => {
+      schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      renderCalendar();
+    });
+
+    // --- UI描画処理 ---
+    function renderMemberOptions() {
+      const checkboxContainer = document.getElementById('member-checkboxes-container');
+      const filterSelect = document.getElementById('filter-member');
+      const memberList = document.getElementById('member-list');
+
+      checkboxContainer.innerHTML = members.map(m => `
+        <label class="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 p-1 rounded">
+          <input type="checkbox" value="${m}" class="member-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+          <span>${m}</span>
+        </label>
+      `).join('');
+
+      const currentFilter = filterSelect.value;
+      filterSelect.innerHTML = '<option value="">全員を表示</option>' + 
+        members.map(m => `<option value="${m}">${m}</option>`).join('');
+      filterSelect.value = currentFilter;
+
+      memberList.innerHTML = members.map(m => `
+        <li class="px-3 py-2 flex justify-between items-center text-sm hover:bg-slate-50">
+          <span class="font-medium text-slate-700">${m}</span>
+          <button onclick="window.removeMember('${m}')" class="text-rose-500 hover:text-rose-700 text-xs px-2 py-1 rounded hover:bg-rose-50 transition">
+            <i class="fa-solid fa-trash"></i> 削除
+          </button>
+        </li>
+      `).join('');
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById('calendar-grid');
+      const rangeText = document.getElementById('current-week-range');
+      const filterMember = document.getElementById('filter-member').value;
+
+      grid.innerHTML = '';
+      const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+      const todayStr = formatDate(new Date());
+
+      const Saturday = new Date(currentSunday);
+      Saturday.setDate(Saturday.getDate() + 6);
+      rangeText.textContent = `${currentSunday.getFullYear()}年 ${currentSunday.getMonth() + 1}/${currentSunday.getDate()} ～ ${Saturday.getMonth() + 1}/${Saturday.getDate()}`;
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(currentSunday);
+        date.setDate(date.getDate() + i);
+        const dateStr = formatDate(date);
+        const isToday = dateStr === todayStr;
+
+        const dayCol = document.createElement('div');
+        dayCol.className = `bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col day-col ${isToday ? 'today-highlight' : ''}`;
+
+        let headerBg = 'bg-slate-50 text-slate-700';
+        if (i === 0) headerBg = 'bg-rose-50 text-rose-600';
+        if (i === 6) headerBg = 'bg-sky-50 text-sky-600';
+
+        dayCol.innerHTML = `
+          <div class="p-3 border-b border-slate-100 flex justify-between items-center ${headerBg} rounded-t-xl">
+            <div class="font-bold">
+              <span class="text-lg">${date.getDate()}</span>
+              <span class="text-xs ml-1">(${dayNames[i]})</span>
+            </div>
+            ${isToday ? '<span class="text-[10px] bg-sky-600 text-white font-bold px-1.5 py-0.5 rounded">今日</span>' : ''}
+          </div>
+          <div class="p-2 flex-grow overflow-y-auto space-y-2 custom-scrollbar" id="day-${dateStr}">
+          </div>
+        `;
+
+        grid.appendChild(dayCol);
+
+        const container = dayCol.querySelector(`#day-${dateStr}`);
+        let daySchedules = schedules.filter(s => s.date === dateStr);
+        if (filterMember) {
+          daySchedules = daySchedules.filter(s => s.members && s.members.includes(filterMember));
+        }
+
+        if (daySchedules.length === 0) {
+          container.innerHTML = `<p class="text-xs text-slate-300 text-center py-4">予定なし</p>`;
+        } else {
+          daySchedules.forEach(s => {
+            const style = TYPE_STYLES[s.type] || { bg: 'bg-slate-50', border: 'border-slate-200', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700' };
+            const timeText = s.isAllDay ? '終日' : `${s.startTime}～${s.endTime}`;
+            const memberNames = (s.members || []).join(', ');
+
+            const item = document.createElement('div');
+            item.className = `${style.bg} border ${style.border} rounded-lg p-2.5 shadow-sm text-xs space-y-1 ${currentUser ? 'cursor-pointer hover:shadow' : 'cursor-default'} transition`;
+            if (currentUser) {
+              item.onclick = () => openScheduleModal(s);
+            }
+
+            item.innerHTML = `
+              <div class="flex items-start justify-between gap-1">
+                <span class="font-bold text-slate-800 leading-snug break-words">${memberNames}</span>
+                <span class="${style.badgeBg} ${style.badgeText} text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0">${s.type}</span>
+              </div>
+              <div class="text-slate-500 font-mono text-[11px]">
+                <i class="fa-regular fa-clock mr-1"></i>${timeText}
+              </div>
+              ${s.note ? `<div class="text-slate-600 text-[11px] bg-white/60 p-1.5 rounded border border-slate-100 break-words whitespace-normal"><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>${s.note}</div>` : ''}
+            `;
+            container.appendChild(item);
+          });
+        }
+      }
+    }
+
+    // --- グローバル関数（マスター管理） ---
+    window.removeMember = async function(name) {
+      if (!currentUser) return;
+      if (confirm(`「${name}」をリストから削除しますか？`)) {
+        await deleteDoc(doc(db, 'members', name));
+      }
+    };
+
+    document.getElementById('form-add-member').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentUser) return;
+      const input = document.getElementById('input-new-member');
+      const name = input.value.trim();
+      if (name) {
+        await setDoc(doc(db, 'members', name), { name });
+        input.value = '';
+      }
+    });
+
+    // --- モーダル・フォーム操作 ---
+    function openScheduleModal(schedule = null) {
+      if (!currentUser) return;
+      const modal = document.getElementById('modal-schedule');
+      const form = document.getElementById('form-schedule');
+      const title = document.getElementById('modal-title');
+      const btnDelete = document.getElementById('btn-delete-schedule');
+
+      form.reset();
+      document.getElementById('time-inputs').classList.add('hidden');
+      document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
+
+      if (schedule) {
+        title.textContent = '予定の編集';
+        document.getElementById('schedule-id').value = schedule.id;
+
+        if (schedule.members && Array.isArray(schedule.members)) {
+          document.querySelectorAll('.member-checkbox').forEach(cb => {
+            if (schedule.members.includes(cb.value)) {
+              cb.checked = true;
+            }
+          });
+        }
+
+        document.getElementById('input-date').value = schedule.date;
+        document.getElementById('input-type').value = schedule.type;
+        document.getElementById('input-all-day').checked = schedule.isAllDay;
+        
+        if (!schedule.isAllDay) {
+          document.getElementById('time-inputs').classList.remove('hidden');
+          document.getElementById('input-start-time').value = schedule.startTime;
+          document.getElementById('input-end-time').value = schedule.endTime;
+        }
+        document.getElementById('input-note').value = schedule.note || '';
+        btnDelete.classList.remove('hidden');
+      } else {
+        title.textContent = '新規予定登録';
+        document.getElementById('schedule-id').value = '';
+        document.getElementById('input-date').value = formatDate(new Date());
+        document.getElementById('input-all-day').checked = true;
+        btnDelete.classList.add('hidden');
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    document.getElementById('input-all-day').addEventListener('change', (e) => {
+      const timeInputs = document.getElementById('time-inputs');
+      if (e.target.checked) {
+        timeInputs.classList.add('hidden');
+      } else {
+        timeInputs.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('form-schedule').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      const id = document.getElementById('schedule-id').value || Date.now().toString();
+      const isAllDay = document.getElementById('input-all-day').checked;
+
+      const checkedMembers = Array.from(document.querySelectorAll('.member-checkbox:checked')).map(cb => cb.value);
+      if (checkedMembers.length === 0) {
+        alert('対象従業員を1人以上選択してください。');
+        return;
+      }
+
+      const scheduleData = {
+        members: checkedMembers,
+        date: document.getElementById('input-date').value,
+        type: document.getElementById('input-type').value,
+        isAllDay: isAllDay,
+        startTime: isAllDay ? '' : document.getElementById('input-start-time').value,
+        endTime: isAllDay ? '' : document.getElementById('input-end-time').value,
+        note: document.getElementById('input-note').value.trim()
+      };
+
+      await setDoc(doc(db, 'schedules', id), scheduleData);
+      document.getElementById('modal-schedule').classList.add('hidden');
+    });
+
+    document.getElementById('btn-delete-schedule').addEventListener('click', async () => {
+      const id = document.getElementById('schedule-id').value;
+      if (id && currentUser && confirm('この予定を削除しますか？')) {
+        await deleteDoc(doc(db, 'schedules', id));
+        document.getElementById('modal-schedule').classList.add('hidden');
+      }
+    });
+
+    // --- イベントリスナー ---
+    document.getElementById('btn-add-schedule').addEventListener('click', () => openScheduleModal());
+    document.getElementById('btn-close-modal').addEventListener('click', () => document.getElementById('modal-schedule').classList.add('hidden'));
+    document.getElementById('btn-cancel-schedule').addEventListener('click', () => document.getElementById('modal-schedule').classList.add('hidden'));
+
+    document.getElementById('btn-manage-members').addEventListener('click', () => document.getElementById('modal-members').classList.remove('hidden'));
+    document.getElementById('btn-close-members-modal').addEventListener('click', () => document.getElementById('modal-members').classList.add('hidden'));
+
+    document.getElementById('filter-member').addEventListener('change', () => renderCalendar());
+
+    document.getElementById('btn-prev-week').addEventListener('click', () => {
+      currentSunday.setDate(currentSunday.getDate() - 7);
+      renderCalendar();
+    });
+
+    document.getElementById('btn-next-week').addEventListener('click', () => {
+      currentSunday.setDate(currentSunday.getDate() + 7);
+      renderCalendar();
+    });
+
+    document.getElementById('btn-today').addEventListener('click', () => {
+      currentSunday = getSunday(new Date());
+      renderCalendar();
+    });
+
+    // 初回表示
+    renderCalendar();
+  </script>
+</body>
+</html>
