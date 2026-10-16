@@ -356,10 +356,10 @@
     const DEFAULT_MEMBERS = ['青柳 太郎', '山田 太郎', '佐藤 花子'];
 
     let currentSunday = getSunday(new Date());
-    let members = []; // { name: string, order: number }
+    let members = [];
     let adminEmails = [];
     let schedules = [];
-    let schoolEvents = {};
+    let schoolEvents = {}; // { '2026-04-01': ['研修9:00', '運１ 14:00'] }
     let dutySchedule = {};
     let currentUser = null;
     let isUserAdmin = false;
@@ -378,7 +378,6 @@
       return `${year}-${month}-${day}`;
     }
 
-    // 日付文字列 (2026/4/1 や 2026-4-1 など) を 2026-04-01 形式に統一変換
     function normalizeDateString(dateStr) {
       if (!dateStr) return '';
       const clean = dateStr.replace(/\//g, '-').trim();
@@ -471,7 +470,7 @@
         renderAdminList();
       });
 
-      // メンバー（order 順にソート）
+      // メンバー
       onSnapshot(collection(db, 'members'), (snapshot) => {
         const rawMembers = snapshot.docs.map(doc => {
           const data = doc.data();
@@ -497,7 +496,12 @@
       onSnapshot(collection(db, 'events'), (snapshot) => {
         schoolEvents = {};
         snapshot.docs.forEach(doc => {
-          schoolEvents[doc.id] = doc.data().title;
+          const data = doc.data();
+          if (Array.isArray(data.titles)) {
+            schoolEvents[doc.id] = data.titles;
+          } else if (data.title) {
+            schoolEvents[doc.id] = [data.title];
+          }
         });
         renderCalendar();
       });
@@ -567,7 +571,6 @@
       Saturday.setDate(Saturday.getDate() + 6);
       rangeText.textContent = `${currentSunday.getFullYear()}年 ${currentSunday.getMonth() + 1}/${currentSunday.getDate()} ～ ${Saturday.getMonth() + 1}/${Saturday.getDate()}`;
 
-      // 週番の表示更新
       if (dutySchedule[sundayStr]) {
         dutyText.textContent = dutySchedule[sundayStr].join('・');
       } else {
@@ -587,7 +590,12 @@
         if (i === 0) headerBg = 'bg-rose-50 text-rose-600';
         if (i === 6) headerBg = 'bg-sky-50 text-sky-600';
 
-        const eventTitle = schoolEvents[dateStr];
+        const eventTitles = schoolEvents[dateStr] || [];
+        const eventsHtml = eventTitles.map(t => `
+          <div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-2 py-0.5 rounded tracking-tight text-center truncate" title="${t}">
+            <i class="fa-solid fa-flag text-amber-600 mr-1"></i>${t}
+          </div>
+        `).join('');
 
         dayCol.innerHTML = `
           <div class="p-3 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1">
@@ -598,7 +606,7 @@
               </div>
               ${isToday ? '<span class="text-[10px] bg-sky-600 text-white font-bold px-1.5 py-0.5 rounded">今日</span>' : ''}
             </div>
-            ${eventTitle ? `<div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-2 py-0.5 rounded tracking-tight text-center truncate" title="${eventTitle}"><i class="fa-solid fa-flag text-amber-600 mr-1"></i>${eventTitle}</div>` : ''}
+            ${eventsHtml}
           </div>
           <div class="p-2 flex-grow overflow-y-auto space-y-2 custom-scrollbar" id="day-${dateStr}">
           </div>
@@ -648,7 +656,7 @@
       return lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"(.*)"$/, '$1')));
     }
 
-    // ① メンバーインポート（順序番号 order を自動付与）
+    // ① メンバーインポート
     document.getElementById('csv-import-members').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !isUserAdmin) return;
@@ -671,7 +679,7 @@
       reader.readAsText(file);
     });
 
-    // ② 年間予定インポート（日付フォーマットの自動正規化）
+    // ② 年間予定インポート（複数列／複数項目対応）
     document.getElementById('csv-import-events').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !isUserAdmin) return;
@@ -682,20 +690,23 @@
         let count = 0;
         rows.forEach((row, idx) => {
           if (idx === 0 && (row[0] === '日付' || row[0] === 'date')) return;
-          const [rawDate, title] = row;
+          const rawDate = row[0];
           const normDate = normalizeDateString(rawDate);
-          if (normDate && title) {
-            batch.set(doc(db, 'events', normDate), { title });
+          
+          // B列以降の非空セルを行事タイトルとして抽出
+          const titles = row.slice(1).filter(t => t && t !== '');
+          if (normDate && titles.length > 0) {
+            batch.set(doc(db, 'events', normDate), { titles: titles });
             count++;
           }
         });
         await batch.commit();
-        showCSVStatus(`年間予定 ${count} 件を一括登録しました！`);
+        showCSVStatus(`年間予定 ${count} 日分（複数項目対応）を一括登録しました！`);
       };
       reader.readAsText(file);
     });
 
-    // ③ 週番インポート（日付フォーマットの自動正規化）
+    // ③ 週番インポート
     document.getElementById('csv-import-duty').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !isUserAdmin) return;
@@ -738,7 +749,7 @@
       };
 
       download('01_members_template.csv', '氏名\n青柳 太郎\n山田 太郎\n佐藤 花子\n');
-      setTimeout(() => download('02_events_template.csv', '日付,行事名\n2026/04/01,入学式\n2026/05/15,中間テスト\n'), 300);
+      setTimeout(() => download('02_events_template.csv', '日付,行事1,行事2,行事3\n2026/04/01,入学式,新入教職員研修\n2026/05/15,中間テスト,PTA総会\n'), 300);
       setTimeout(() => download('03_duty_template.csv', '週開始日,担当1,担当2\n2026/04/05,青柳,佐藤\n2026/04/12,山田,鈴木\n'), 600);
     });
 
