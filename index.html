@@ -17,7 +17,29 @@
     .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col relative">
+
+  <!-- 未ログイン時用：フルスクリーンログインオーバーレイ -->
+  <div id="login-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center space-y-6 border border-slate-100">
+      <div class="inline-flex p-4 bg-indigo-50 rounded-full text-indigo-900 mb-2">
+        <i class="fa-solid fa-calendar-check text-4xl"></i>
+      </div>
+      <div>
+        <h2 class="text-2xl font-bold text-slate-900">KNaviNEO</h2>
+        <p class="text-sm text-slate-500 mt-1">敬和学園 週間勤怠・予定管理システム</p>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 text-left flex items-start gap-2">
+        <i class="fa-solid fa-shield-halved text-amber-600 text-sm mt-0.5"></i>
+        <span>本システムは関係者専用です。閲覧・ご利用には <strong>@keiwa-h.ed.jp</strong> のGoogleアカウントによるログインが必要です。</span>
+      </div>
+      <button id="btn-overlay-login" class="w-full py-3 px-4 bg-indigo-900 hover:bg-indigo-800 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+        <i class="fa-brands fa-google"></i>
+        <span>Googleアカウントでログイン</span>
+      </button>
+      <p id="login-error-msg" class="text-xs text-rose-600 font-medium hidden"></p>
+    </div>
+  </div>
 
   <!-- ヘッダー -->
   <header class="bg-indigo-900 text-white shadow-md sticky top-0 z-20">
@@ -30,22 +52,25 @@
         </div>
       </div>
 
-      <!-- 操作ボタン群（管理者権限で切り替え） -->
+      <!-- 操作ボタン群 -->
       <div class="flex items-center space-x-2">
         <button id="btn-manage-members" class="admin-only hidden bg-indigo-800 hover:bg-indigo-700 text-indigo-100 text-sm px-3 py-1.5 rounded-lg border border-indigo-600 transition flex items-center gap-1.5">
           <i class="fa-solid fa-users"></i>
-          <span>従業員マスター</span>
+          <span>メンバー・権限管理</span>
         </button>
         <button id="btn-add-schedule" class="admin-only hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm px-4 py-1.5 rounded-lg shadow transition flex items-center gap-1">
           <i class="fa-solid fa-plus"></i>
           <span>予定を登録</span>
         </button>
 
-        <!-- Googleログイン / ログアウトボタン -->
-        <button id="btn-auth" class="bg-white/10 hover:bg-white/20 text-white text-sm px-3 py-1.5 rounded-lg border border-indigo-400/30 transition flex items-center gap-2">
-          <i class="fa-solid fa-user-lock"></i>
-          <span id="auth-btn-text">管理者ログイン</span>
-        </button>
+        <!-- ユーザー情報 / ログアウトボタン -->
+        <div id="user-info-bar" class="hidden items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg border border-indigo-400/30 text-xs">
+          <span id="user-display-name" class="font-medium text-indigo-100"></span>
+          <span id="user-role-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold"></span>
+          <button id="btn-logout" class="ml-1 text-indigo-300 hover:text-white transition" title="ログアウト">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -86,7 +111,7 @@
 
     </div>
 
-    <!-- フィルターバー（従業員フィルター） -->
+    <!-- フィルターバー -->
     <div class="flex items-center gap-3 bg-white p-3 rounded-lg border border-slate-200 text-sm">
       <i class="fa-solid fa-filter text-slate-400"></i>
       <span class="font-medium text-slate-600">表示絞り込み:</span>
@@ -102,9 +127,8 @@
 
   </main>
 
-  <!-- フッター -->
   <footer class="bg-slate-100 border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-    <p>KNaviNEO &copy; 勤怠・予定共有システム</p>
+    <p>KNaviNEO &copy; 敬和学園 勤怠・予定共有システム</p>
   </footer>
 
   <!-- モーダル: 予定の登録・編集 -->
@@ -118,21 +142,17 @@
       <form id="form-schedule" class="p-6 space-y-4">
         <input type="hidden" id="schedule-id">
 
-        <!-- 対象従業員（複数選択チェックボックス） -->
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">対象従業員 <span class="text-rose-500">* (複数選択可)</span></label>
           <div id="member-checkboxes-container" class="border border-slate-300 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1 bg-slate-50 custom-scrollbar">
-            <!-- JavaScriptで動的生成 -->
           </div>
         </div>
 
-        <!-- 日付選択 -->
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">日付 <span class="text-rose-500">*</span></label>
           <input type="date" id="input-date" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
         </div>
 
-        <!-- 種別 -->
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">種別 <span class="text-rose-500">*</span></label>
           <select id="input-type" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
@@ -148,7 +168,6 @@
           </select>
         </div>
 
-        <!-- 時間（終日フラグ／時間指定） -->
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-xs font-semibold text-slate-600">時間指定</label>
@@ -163,13 +182,11 @@
           </div>
         </div>
 
-        <!-- 備考・行き先 -->
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">備考・訪問先など</label>
-          <input type="text" id="input-note" placeholder="例: 田中商事様へ直行" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <input type="text" id="input-note" placeholder="例: 直行 / 〇〇高校へ訪問" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
         </div>
 
-        <!-- ボタン類 -->
         <div class="pt-4 flex justify-between items-center border-t border-slate-100">
           <button type="button" id="btn-delete-schedule" class="text-rose-600 hover:text-rose-800 text-sm font-medium hidden">
             <i class="fa-solid fa-trash mr-1"></i> 削除
@@ -183,27 +200,40 @@
     </div>
   </div>
 
-  <!-- モーダル: 従業員マスター管理 -->
+  <!-- モーダル: 従業員マスター・管理者権限管理 -->
   <div id="modal-members" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden border border-slate-200">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden border border-slate-200">
       <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center">
-        <h3 class="font-bold text-lg">従業員マスター管理</h3>
+        <h3 class="font-bold text-lg">メンバー・管理者権限管理</h3>
         <button id="btn-close-members-modal" class="text-indigo-200 hover:text-white text-xl">&times;</button>
       </div>
 
-      <div class="p-6 space-y-4">
-        <!-- 新規追加フォーム -->
-        <form id="form-add-member" class="flex gap-2">
-          <input type="text" id="input-new-member" required placeholder="新しい従業員名を入力" class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-          <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition shrink-0">追加</button>
-        </form>
-
-        <!-- メンバー一覧 -->
+      <div class="p-6 space-y-6">
+        <!-- 従業員追加 -->
         <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-2">登録済みメンバー一覧</label>
-          <ul id="member-list" class="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-60 overflow-y-auto custom-scrollbar">
-            <!-- JavaScriptで動的生成 -->
-          </ul>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">表示用メンバー追加</label>
+          <form id="form-add-member" class="flex gap-2">
+            <input type="text" id="input-new-member" required placeholder="氏名を入力（例: 青柳 太郎）" class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition shrink-0">追加</button>
+          </form>
+          <ul id="member-list" class="mt-2 divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-36 overflow-y-auto custom-scrollbar"></ul>
+        </div>
+
+        <hr class="border-slate-200">
+
+        <!-- 管理者権限アカウントの追加・管理 -->
+        <div>
+          <label class="block text-xs font-semibold text-indigo-900 mb-1">
+            <i class="fa-solid fa-user-shield text-indigo-600 mr-1"></i> 管理者権限アカウント（書き込み許可）の追加
+          </label>
+          <p class="text-[11px] text-slate-500 mb-2">許可されたメールアドレスのみが予定の追加・編集・削除を行えます。</p>
+
+          <form id="form-add-admin" class="flex gap-2 mb-2">
+            <input type="email" id="input-new-admin-email" required placeholder="user@keiwa-h.ed.jp" class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <button type="submit" class="bg-indigo-900 hover:bg-indigo-800 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition shrink-0">権限付与</button>
+          </form>
+
+          <ul id="admin-list" class="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-36 overflow-y-auto custom-scrollbar"></ul>
         </div>
       </div>
     </div>
@@ -213,9 +243,9 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Firebase 設定情報（組み込み済み）
+    // Firebase 設定
     const firebaseConfig = {
       apiKey: "AIzaSyDy7e0BxnoWHn6CR-hnafy9LBTGOUopiAE",
       authDomain: "knavineo.firebaseapp.com",
@@ -225,13 +255,14 @@
       appId: "1:595683059409:web:3cf6bf043a17498ff3c7f0"
     };
 
-    // Firebase 初期化
+    const ALLOWED_DOMAIN = 'keiwa-h.ed.jp';
+    const MASTER_ADMIN_EMAIL = 'aoyagi@keiwa-h.ed.jp';
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const googleProvider = new GoogleAuthProvider();
 
-    // 種別に応じたスタイル定義
     const TYPE_STYLES = {
       '年休': { bg: 'bg-rose-50', border: 'border-rose-200', badgeBg: 'bg-rose-100', badgeText: 'text-rose-800' },
       '遅刻': { bg: 'bg-orange-50', border: 'border-orange-200', badgeBg: 'bg-orange-100', badgeText: 'text-orange-800' },
@@ -244,15 +275,15 @@
       '出張': { bg: 'bg-blue-50', border: 'border-blue-200', badgeBg: 'bg-blue-100', badgeText: 'text-blue-800' }
     };
 
-    const DEFAULT_MEMBERS = ['山田 太郎', '佐藤 花子', '田中 健二', '鈴木 一郎'];
+    const DEFAULT_MEMBERS = ['青柳 太郎', '山田 太郎', '佐藤 花子'];
 
-    // アプリ状態
     let currentSunday = getSunday(new Date());
     let members = [];
+    let adminEmails = [];
     let schedules = [];
     let currentUser = null;
+    let isUserAdmin = false;
 
-    // --- 日付ヘルパー関数 ---
     function getSunday(d) {
       const date = new Date(d);
       const day = date.getDay();
@@ -267,56 +298,107 @@
       return `${year}-${month}-${day}`;
     }
 
-    // --- Authentication（認証状態監視） ---
-    onAuthStateChanged(auth, (user) => {
-      currentUser = user;
-      const btnAuthText = document.getElementById('auth-btn-text');
+    // --- 認証＆ドメインチェック ---
+    onAuthStateChanged(auth, async (user) => {
+      const overlay = document.getElementById('login-overlay');
+      const errorMsg = document.getElementById('login-error-msg');
+      const userInfoBar = document.getElementById('user-info-bar');
       const adminButtons = document.querySelectorAll('.admin-only');
 
       if (user) {
-        btnAuthText.textContent = `${user.displayName || '管理者'} (ログアウト)`;
-        adminButtons.forEach(btn => btn.classList.remove('hidden'));
+        const email = user.email || '';
+        if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+          errorMsg.textContent = `アクセスが拒否されました。@${ALLOWED_DOMAIN} のアカウントのみ利用可能です。`;
+          errorMsg.classList.remove('hidden');
+          await signOut(auth);
+          return;
+        }
+
+        currentUser = user;
+        overlay.classList.add('hidden');
+        errorMsg.classList.add('hidden');
+
+        // 管理者判定
+        isUserAdmin = (email === MASTER_ADMIN_EMAIL) || adminEmails.includes(email);
+
+        document.getElementById('user-display-name').textContent = user.displayName || email;
+        const roleBadge = document.getElementById('user-role-badge');
+        if (isUserAdmin) {
+          roleBadge.textContent = '管理者';
+          roleBadge.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-amber-950';
+          adminButtons.forEach(btn => btn.classList.remove('hidden'));
+        } else {
+          roleBadge.textContent = '一般ユーザー';
+          roleBadge.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-300 text-slate-800';
+          adminButtons.forEach(btn => btn.classList.add('hidden'));
+        }
+        userInfoBar.classList.remove('hidden');
+        userInfoBar.classList.add('flex');
+
+        initFirestoreListeners();
       } else {
-        btnAuthText.textContent = '管理者ログイン';
+        currentUser = null;
+        isUserAdmin = false;
+        overlay.classList.remove('hidden');
+        userInfoBar.classList.add('hidden');
         adminButtons.forEach(btn => btn.classList.add('hidden'));
       }
       renderCalendar();
     });
 
-    document.getElementById('btn-auth').addEventListener('click', () => {
-      if (currentUser) {
-        if (confirm('ログアウトしますか？')) {
-          signOut(auth);
+    // ログイン実行
+    const handleLogin = () => {
+      signInWithPopup(auth, googleProvider).catch((error) => {
+        const errorMsg = document.getElementById('login-error-msg');
+        errorMsg.textContent = `ログインエラー: ${error.message}`;
+        errorMsg.classList.remove('hidden');
+      });
+    };
+
+    document.getElementById('btn-overlay-login').addEventListener('click', handleLogin);
+    document.getElementById('btn-logout').addEventListener('click', () => signOut(auth));
+
+    // --- Firestore リアルタイム取得 ---
+    function initFirestoreListeners() {
+      // 管理者リストのリスナー
+      onSnapshot(collection(db, 'admins'), (snapshot) => {
+        adminEmails = snapshot.docs.map(doc => doc.id);
+        if (currentUser) {
+          isUserAdmin = (currentUser.email === MASTER_ADMIN_EMAIL) || adminEmails.includes(currentUser.email);
+          const adminButtons = document.querySelectorAll('.admin-only');
+          const roleBadge = document.getElementById('user-role-badge');
+
+          if (isUserAdmin) {
+            roleBadge.textContent = '管理者';
+            roleBadge.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-amber-950';
+            adminButtons.forEach(btn => btn.classList.remove('hidden'));
+          } else {
+            roleBadge.textContent = '一般ユーザー';
+            roleBadge.className = 'px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-300 text-slate-800';
+            adminButtons.forEach(btn => btn.classList.add('hidden'));
+          }
         }
-      } else {
-        signInWithPopup(auth, googleProvider).catch((error) => {
-          alert(`ログインエラー: ${error.message}`);
-        });
-      }
-    });
+        renderAdminList();
+      });
 
-    // --- Firestore リアルタイムリスナー設定 ---
-    
-    // 従業員マスターリスナー
-    onSnapshot(collection(db, 'members'), (snapshot) => {
-      members = snapshot.docs.map(doc => doc.data().name);
-      if (members.length === 0 && currentUser) {
-        // 初期データ投入
-        DEFAULT_MEMBERS.forEach(name => {
-          setDoc(doc(db, 'members', name), { name });
-        });
-      } else {
-        renderMemberOptions();
-      }
-    });
+      // 従業員マスターのリスナー
+      onSnapshot(collection(db, 'members'), (snapshot) => {
+        members = snapshot.docs.map(doc => doc.data().name);
+        if (members.length === 0 && isUserAdmin) {
+          DEFAULT_MEMBERS.forEach(name => setDoc(doc(db, 'members', name), { name }));
+        } else {
+          renderMemberOptions();
+        }
+      });
 
-    // 予定データリスナー
-    onSnapshot(collection(db, 'schedules'), (snapshot) => {
-      schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      renderCalendar();
-    });
+      // 予定データのリスナー
+      onSnapshot(collection(db, 'schedules'), (snapshot) => {
+        schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderCalendar();
+      });
+    }
 
-    // --- UI描画処理 ---
+    // --- UI レンダリング ---
     function renderMemberOptions() {
       const checkboxContainer = document.getElementById('member-checkboxes-container');
       const filterSelect = document.getElementById('filter-member');
@@ -330,16 +412,25 @@
       `).join('');
 
       const currentFilter = filterSelect.value;
-      filterSelect.innerHTML = '<option value="">全員を表示</option>' + 
-        members.map(m => `<option value="${m}">${m}</option>`).join('');
+      filterSelect.innerHTML = '<option value="">全員を表示</option>' + members.map(m => `<option value="${m}">${m}</option>`).join('');
       filterSelect.value = currentFilter;
 
       memberList.innerHTML = members.map(m => `
-        <li class="px-3 py-2 flex justify-between items-center text-sm hover:bg-slate-50">
+        <li class="px-3 py-1.5 flex justify-between items-center text-sm">
           <span class="font-medium text-slate-700">${m}</span>
-          <button onclick="window.removeMember('${m}')" class="text-rose-500 hover:text-rose-700 text-xs px-2 py-1 rounded hover:bg-rose-50 transition">
-            <i class="fa-solid fa-trash"></i> 削除
-          </button>
+          ${isUserAdmin ? `<button onclick="window.removeMember('${m}')" class="text-rose-500 hover:text-rose-700 text-xs"><i class="fa-solid fa-trash"></i> 削除</button>` : ''}
+        </li>
+      `).join('');
+    }
+
+    function renderAdminList() {
+      const adminList = document.getElementById('admin-list');
+      const allAdmins = Array.from(new Set([MASTER_ADMIN_EMAIL, ...adminEmails]));
+
+      adminList.innerHTML = allAdmins.map(email => `
+        <li class="px-3 py-2 flex justify-between items-center text-xs">
+          <span class="font-mono text-slate-700">${email} ${email === MASTER_ADMIN_EMAIL ? '<span class="text-[10px] bg-slate-200 text-slate-600 px-1 rounded ml-1">マスター</span>' : ''}</span>
+          ${(isUserAdmin && email !== MASTER_ADMIN_EMAIL) ? `<button onclick="window.removeAdmin('${email}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i> 解除</button>` : ''}
         </li>
       `).join('');
     }
@@ -399,8 +490,8 @@
             const memberNames = (s.members || []).join(', ');
 
             const item = document.createElement('div');
-            item.className = `${style.bg} border ${style.border} rounded-lg p-2.5 shadow-sm text-xs space-y-1 ${currentUser ? 'cursor-pointer hover:shadow' : 'cursor-default'} transition`;
-            if (currentUser) {
+            item.className = `${style.bg} border ${style.border} rounded-lg p-2.5 shadow-sm text-xs space-y-1 ${isUserAdmin ? 'cursor-pointer hover:shadow' : 'cursor-default'} transition`;
+            if (isUserAdmin) {
               item.onclick = () => openScheduleModal(s);
             }
 
@@ -420,17 +511,24 @@
       }
     }
 
-    // --- グローバル関数（マスター管理） ---
+    // --- 管理機能（メンバー＆管理者アカウント追加/削除） ---
     window.removeMember = async function(name) {
-      if (!currentUser) return;
-      if (confirm(`「${name}」をリストから削除しますか？`)) {
+      if (!isUserAdmin) return;
+      if (confirm(`「${name}」をメンバーリストから削除しますか？`)) {
         await deleteDoc(doc(db, 'members', name));
+      }
+    };
+
+    window.removeAdmin = async function(email) {
+      if (!isUserAdmin) return;
+      if (confirm(`「${email}」の管理者権限を解除しますか？`)) {
+        await deleteDoc(doc(db, 'admins', email));
       }
     };
 
     document.getElementById('form-add-member').addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!currentUser) return;
+      if (!isUserAdmin) return;
       const input = document.getElementById('input-new-member');
       const name = input.value.trim();
       if (name) {
@@ -439,9 +537,22 @@
       }
     });
 
+    document.getElementById('form-add-admin').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!isUserAdmin) return;
+      const input = document.getElementById('input-new-admin-email');
+      const email = input.value.trim().toLowerCase();
+      if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+        alert(`@${ALLOWED_DOMAIN} のメールアドレスのみ追加可能です。`);
+        return;
+      }
+      await setDoc(doc(db, 'admins', email), { addedAt: new Date() });
+      input.value = '';
+    });
+
     // --- モーダル・フォーム操作 ---
     function openScheduleModal(schedule = null) {
-      if (!currentUser) return;
+      if (!isUserAdmin) return;
       const modal = document.getElementById('modal-schedule');
       const form = document.getElementById('form-schedule');
       const title = document.getElementById('modal-title');
@@ -457,9 +568,7 @@
 
         if (schedule.members && Array.isArray(schedule.members)) {
           document.querySelectorAll('.member-checkbox').forEach(cb => {
-            if (schedule.members.includes(cb.value)) {
-              cb.checked = true;
-            }
+            if (schedule.members.includes(cb.value)) cb.checked = true;
           });
         }
 
@@ -487,16 +596,12 @@
 
     document.getElementById('input-all-day').addEventListener('change', (e) => {
       const timeInputs = document.getElementById('time-inputs');
-      if (e.target.checked) {
-        timeInputs.classList.add('hidden');
-      } else {
-        timeInputs.classList.remove('hidden');
-      }
+      timeInputs.classList.toggle('hidden', e.target.checked);
     });
 
     document.getElementById('form-schedule').addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!currentUser) return;
+      if (!isUserAdmin) return;
 
       const id = document.getElementById('schedule-id').value || Date.now().toString();
       const isAllDay = document.getElementById('input-all-day').checked;
@@ -523,13 +628,13 @@
 
     document.getElementById('btn-delete-schedule').addEventListener('click', async () => {
       const id = document.getElementById('schedule-id').value;
-      if (id && currentUser && confirm('この予定を削除しますか？')) {
+      if (id && isUserAdmin && confirm('この予定を削除しますか？')) {
         await deleteDoc(doc(db, 'schedules', id));
         document.getElementById('modal-schedule').classList.add('hidden');
       }
     });
 
-    // --- イベントリスナー ---
+    // イベントリスナー
     document.getElementById('btn-add-schedule').addEventListener('click', () => openScheduleModal());
     document.getElementById('btn-close-modal').addEventListener('click', () => document.getElementById('modal-schedule').classList.add('hidden'));
     document.getElementById('btn-cancel-schedule').addEventListener('click', () => document.getElementById('modal-schedule').classList.add('hidden'));
@@ -554,7 +659,6 @@
       renderCalendar();
     });
 
-    // 初回表示
     renderCalendar();
   </script>
 </body>
