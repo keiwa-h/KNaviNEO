@@ -359,7 +359,7 @@
     let members = [];
     let adminEmails = [];
     let schedules = [];
-    let schoolEvents = {}; // { '2026-04-01': ['研修9:00', '運１ 14:00'] }
+    let schoolEvents = {};
     let dutySchedule = {};
     let currentUser = null;
     let isUserAdmin = false;
@@ -591,14 +591,15 @@
         if (i === 6) headerBg = 'bg-sky-50 text-sky-600';
 
         const eventTitles = schoolEvents[dateStr] || [];
+        // ★ 変更点: 左揃え (text-left) ＆ 自動折り返し (whitespace-pre-wrap break-words) ★
         const eventsHtml = eventTitles.map(t => `
-          <div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-2 py-0.5 rounded tracking-tight text-center truncate" title="${t}">
-            <i class="fa-solid fa-flag text-amber-600 mr-1"></i>${t}
+          <div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-2 py-1 rounded tracking-tight text-left whitespace-pre-wrap break-words leading-tight" title="${t}">
+            <i class="fa-solid fa-flag text-amber-600 mr-1 shrink-0"></i>${t}
           </div>
         `).join('');
 
         dayCol.innerHTML = `
-          <div class="p-3 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1">
+          <div class="p-3 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1.5">
             <div class="flex justify-between items-center">
               <div class="font-bold">
                 <span class="text-lg">${date.getDate()}</span>
@@ -679,7 +680,7 @@
       reader.readAsText(file);
     });
 
-    // ② 年間予定インポート（複数列／複数項目対応）
+    // ② 年間予定インポート
     document.getElementById('csv-import-events').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !isUserAdmin) return;
@@ -693,7 +694,6 @@
           const rawDate = row[0];
           const normDate = normalizeDateString(rawDate);
           
-          // B列以降の非空セルを行事タイトルとして抽出
           const titles = row.slice(1).filter(t => t && t !== '');
           if (normDate && titles.length > 0) {
             batch.set(doc(db, 'events', normDate), { titles: titles });
