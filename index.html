@@ -9,7 +9,7 @@
   <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    .day-col { min-height: 550px; }
+    .day-col { min-height: 580px; }
     .today-highlight { background-color: #f0f9ff; border-top: 4px solid #0284c7; }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -55,8 +55,8 @@
       <!-- 操作ボタン群 -->
       <div class="flex items-center space-x-2">
         <button id="btn-manage-members" class="admin-only hidden bg-indigo-800 hover:bg-indigo-700 text-indigo-100 text-sm px-3 py-1.5 rounded-lg border border-indigo-600 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-users"></i>
-          <span>メンバー・権限管理</span>
+          <i class="fa-solid fa-sliders"></i>
+          <span>管理・CSV設定</span>
         </button>
         <button id="btn-add-schedule" class="admin-only hidden bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm px-4 py-1.5 rounded-lg shadow transition flex items-center gap-1">
           <i class="fa-solid fa-plus"></i>
@@ -78,7 +78,7 @@
   <!-- メインコンテンツ -->
   <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full flex flex-col gap-6">
 
-    <!-- ナビゲーション & 種別凡例 -->
+    <!-- 週切替・週番（当番）表示バー -->
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
       
       <!-- 週切り替え -->
@@ -95,7 +95,14 @@
         <span id="current-week-range" class="font-bold text-slate-700 text-base ml-2"></span>
       </div>
 
-      <!-- フィルター・種別凡例 -->
+      <!-- 今週の週番表示 -->
+      <div class="bg-indigo-50/80 border border-indigo-200/80 rounded-lg px-3.5 py-1.5 flex items-center gap-2 text-sm w-full md:w-auto justify-center">
+        <i class="fa-solid fa-clipboard-user text-indigo-600"></i>
+        <span class="text-xs font-semibold text-indigo-900">今週の週番:</span>
+        <span id="current-duty-members" class="font-bold text-indigo-950 text-sm">未設定</span>
+      </div>
+
+      <!-- 種別凡例 -->
       <div class="flex flex-wrap items-center gap-1.5 text-xs w-full md:w-auto justify-start md:justify-end">
         <span class="text-slate-400 font-medium mr-1">種別:</span>
         <span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">年休</span>
@@ -104,8 +111,8 @@
         <span class="px-2 py-0.5 rounded bg-lime-100 text-lime-800 border border-lime-200">早退</span>
         <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">代休</span>
         <span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300">忌引</span>
-        <span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 border border-teal-200">看護休暇</span>
-        <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">介護休暇</span>
+        <span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 border border-teal-200">看護</span>
+        <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">介護</span>
         <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">出張</span>
       </div>
 
@@ -142,7 +149,7 @@
       <form id="form-schedule" class="p-6 space-y-4">
         <input type="hidden" id="schedule-id">
 
-        <!-- 対象従業員選択（ドロップダウン / 複数切替） -->
+        <!-- 対象従業員選択 -->
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="block text-xs font-semibold text-slate-600">対象従業員 <span class="text-rose-500">*</span></label>
@@ -152,16 +159,12 @@
             </label>
           </div>
 
-          <!-- 通常用：ドロップダウン -->
           <div id="single-member-container">
             <select id="select-single-member" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
-              <!-- 動的生成 -->
             </select>
           </div>
 
-          <!-- 複数用：チェックボックスリスト -->
           <div id="multiple-member-container" class="hidden border border-slate-300 rounded-lg p-3 max-h-40 overflow-y-auto space-y-1 bg-slate-50 custom-scrollbar">
-            <!-- 動的生成 -->
           </div>
         </div>
 
@@ -175,12 +178,10 @@
             </label>
           </div>
 
-          <!-- 通常用：単一選択 -->
           <div id="single-date-container">
             <input type="date" id="input-date-single" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
           </div>
 
-          <!-- 複数日用：期間指定（開始日～終了日） -->
           <div id="range-date-container" class="hidden grid grid-cols-2 gap-2">
             <div>
               <span class="text-[10px] text-slate-400 block mb-0.5">開始日</span>
@@ -209,7 +210,7 @@
           </select>
         </div>
 
-        <!-- 時間（終日フラグ／時間指定） -->
+        <!-- 時間 -->
         <div>
           <div class="flex items-center justify-between mb-1">
             <label class="text-xs font-semibold text-slate-600">時間指定</label>
@@ -224,7 +225,7 @@
           </div>
         </div>
 
-        <!-- 備考・行き先 -->
+        <!-- 備考 -->
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">備考・訪問先など</label>
           <input type="text" id="input-note" placeholder="例: 直行 / 〇〇高校へ訪問" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
@@ -243,41 +244,75 @@
     </div>
   </div>
 
-  <!-- モーダル: 従業員マスター・管理者権限管理 -->
+  <!-- モーダル: メンバー管理・管理者管理・CSV一括登録 -->
   <div id="modal-members" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden border border-slate-200">
-      <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center">
-        <h3 class="font-bold text-lg">メンバー・管理者権限管理</h3>
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden border border-slate-200 my-8 max-h-[90vh] flex flex-col">
+      <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center shrink-0">
+        <h3 class="font-bold text-lg">システム管理・CSV一括設定</h3>
         <button id="btn-close-members-modal" class="text-indigo-200 hover:text-white text-xl">&times;</button>
       </div>
 
-      <div class="p-6 space-y-6">
-        <!-- 従業員追加 -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">表示用メンバー追加</label>
-          <form id="form-add-member" class="flex gap-2">
-            <input type="text" id="input-new-member" required placeholder="氏名を入力（例: 青柳 太郎）" class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition shrink-0">追加</button>
-          </form>
-          <ul id="member-list" class="mt-2 divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-36 overflow-y-auto custom-scrollbar"></ul>
+      <div class="p-6 overflow-y-auto space-y-6 custom-scrollbar flex-grow">
+        
+        <!-- CSV一括インポートエリア -->
+        <div class="bg-indigo-50/60 border border-indigo-200 rounded-xl p-4 space-y-3">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-indigo-950 text-sm flex items-center gap-1.5">
+              <i class="fa-solid fa-file-csv text-indigo-600 text-lg"></i> CSVデータ一括登録
+            </h4>
+            <button id="btn-download-csv-templates" class="text-xs text-indigo-700 hover:text-indigo-900 font-medium underline flex items-center gap-1">
+              <i class="fa-solid fa-download"></i> テンプレートCSV作成・保存
+            </button>
+          </div>
+          <p class="text-xs text-slate-600">CSVファイルをアップロードして、「表示メンバー」「年間予定」「週番」を一括登録・更新できます。</p>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div class="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-white p-3 rounded-lg text-center transition cursor-pointer relative">
+              <input type="file" id="csv-import-members" accept=".csv" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+              <i class="fa-solid fa-users text-indigo-500 text-lg mb-1 block"></i>
+              <span class="font-bold text-xs text-slate-700 block">① メンバー一括</span>
+              <span class="text-[10px] text-slate-400">members.csv</span>
+            </div>
+            <div class="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-white p-3 rounded-lg text-center transition cursor-pointer relative">
+              <input type="file" id="csv-import-events" accept=".csv" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+              <i class="fa-solid fa-calendar-days text-indigo-500 text-lg mb-1 block"></i>
+              <span class="font-bold text-xs text-slate-700 block">② 年間予定一括</span>
+              <span class="text-[10px] text-slate-400">events.csv</span>
+            </div>
+            <div class="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-white p-3 rounded-lg text-center transition cursor-pointer relative">
+              <input type="file" id="csv-import-duty" accept=".csv" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+              <i class="fa-solid fa-clipboard-user text-indigo-500 text-lg mb-1 block"></i>
+              <span class="font-bold text-xs text-slate-700 block">③ 週番一括</span>
+              <span class="text-[10px] text-slate-400">duty.csv</span>
+            </div>
+          </div>
+          <p id="csv-status-msg" class="text-xs font-semibold text-emerald-700 hidden"></p>
         </div>
 
-        <hr class="border-slate-200">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- 従業員手動管理 -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">表示用メンバー手動登録</label>
+            <form id="form-add-member" class="flex gap-2 mb-2">
+              <input type="text" id="input-new-member" required placeholder="氏名を入力（例: 青柳 太郎）" class="flex-grow border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow transition shrink-0">追加</button>
+            </form>
+            <ul id="member-list" class="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-40 overflow-y-auto custom-scrollbar"></ul>
+          </div>
 
-        <!-- 管理者権限アカウントの追加・管理 -->
-        <div>
-          <label class="block text-xs font-semibold text-indigo-900 mb-1">
-            <i class="fa-solid fa-user-shield text-indigo-600 mr-1"></i> 管理者権限アカウント（書き込み許可）の追加
-          </label>
-          <p class="text-[11px] text-slate-500 mb-2">許可されたメールアドレスのみが予定の追加・編集・削除を行えます。</p>
-
-          <form id="form-add-admin" class="flex gap-2 mb-2">
-            <input type="email" id="input-new-admin-email" required placeholder="user@keiwa-h.ed.jp" class="flex-grow border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-            <button type="submit" class="bg-indigo-900 hover:bg-indigo-800 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition shrink-0">権限付与</button>
-          </form>
-
-          <ul id="admin-list" class="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-36 overflow-y-auto custom-scrollbar"></ul>
+          <!-- 管理者権限手動管理 -->
+          <div>
+            <label class="block text-xs font-semibold text-indigo-900 mb-1">
+              <i class="fa-solid fa-user-shield text-indigo-600 mr-1"></i> 管理者権限（書き込み許可）
+            </label>
+            <form id="form-add-admin" class="flex gap-2 mb-2">
+              <input type="email" id="input-new-admin-email" required placeholder="user@keiwa-h.ed.jp" class="flex-grow border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <button type="submit" class="bg-indigo-900 hover:bg-indigo-800 text-white text-xs px-3 py-1.5 rounded-lg font-medium shadow transition shrink-0">権限付与</button>
+            </form>
+            <ul id="admin-list" class="divide-y divide-slate-100 border border-slate-200 rounded-lg max-h-40 overflow-y-auto custom-scrollbar"></ul>
+          </div>
         </div>
+
       </div>
     </div>
   </div>
@@ -324,6 +359,8 @@
     let members = [];
     let adminEmails = [];
     let schedules = [];
+    let schoolEvents = {};
+    let dutySchedule = {};
     let currentUser = null;
     let isUserAdmin = false;
 
@@ -401,6 +438,7 @@
 
     // --- Firestore リアルタイム取得 ---
     function initFirestoreListeners() {
+      // 管理者
       onSnapshot(collection(db, 'admins'), (snapshot) => {
         adminEmails = snapshot.docs.map(doc => doc.id);
         if (currentUser) {
@@ -421,6 +459,7 @@
         renderAdminList();
       });
 
+      // メンバー
       onSnapshot(collection(db, 'members'), (snapshot) => {
         members = snapshot.docs.map(doc => doc.data().name);
         if (members.length === 0 && isUserAdmin) {
@@ -430,8 +469,27 @@
         }
       });
 
+      // 予定
       onSnapshot(collection(db, 'schedules'), (snapshot) => {
         schedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderCalendar();
+      });
+
+      // 年間行事 (events)
+      onSnapshot(collection(db, 'events'), (snapshot) => {
+        schoolEvents = {};
+        snapshot.docs.forEach(doc => {
+          schoolEvents[doc.id] = doc.data().title;
+        });
+        renderCalendar();
+      });
+
+      // 週番 (duty)
+      onSnapshot(collection(db, 'duty'), (snapshot) => {
+        dutySchedule = {};
+        snapshot.docs.forEach(doc => {
+          dutySchedule[doc.id] = doc.data().members;
+        });
         renderCalendar();
       });
     }
@@ -457,9 +515,9 @@
       filterSelect.value = currentFilter;
 
       memberList.innerHTML = members.map(m => `
-        <li class="px-3 py-1.5 flex justify-between items-center text-sm">
+        <li class="px-3 py-1.5 flex justify-between items-center text-xs">
           <span class="font-medium text-slate-700">${m}</span>
-          ${isUserAdmin ? `<button onclick="window.removeMember('${m}')" class="text-rose-500 hover:text-rose-700 text-xs"><i class="fa-solid fa-trash"></i> 削除</button>` : ''}
+          ${isUserAdmin ? `<button onclick="window.removeMember('${m}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i> 削除</button>` : ''}
         </li>
       `).join('');
     }
@@ -469,7 +527,7 @@
       const allAdmins = Array.from(new Set([MASTER_ADMIN_EMAIL, ...adminEmails]));
 
       adminList.innerHTML = allAdmins.map(email => `
-        <li class="px-3 py-2 flex justify-between items-center text-xs">
+        <li class="px-3 py-1.5 flex justify-between items-center text-xs">
           <span class="font-mono text-slate-700">${email} ${email === MASTER_ADMIN_EMAIL ? '<span class="text-[10px] bg-slate-200 text-slate-600 px-1 rounded ml-1">マスター</span>' : ''}</span>
           ${(isUserAdmin && email !== MASTER_ADMIN_EMAIL) ? `<button onclick="window.removeAdmin('${email}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i> 解除</button>` : ''}
         </li>
@@ -479,15 +537,24 @@
     function renderCalendar() {
       const grid = document.getElementById('calendar-grid');
       const rangeText = document.getElementById('current-week-range');
+      const dutyText = document.getElementById('current-duty-members');
       const filterMember = document.getElementById('filter-member').value;
 
       grid.innerHTML = '';
       const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
       const todayStr = formatDate(new Date());
 
+      const sundayStr = formatDate(currentSunday);
       const Saturday = new Date(currentSunday);
       Saturday.setDate(Saturday.getDate() + 6);
       rangeText.textContent = `${currentSunday.getFullYear()}年 ${currentSunday.getMonth() + 1}/${currentSunday.getDate()} ～ ${Saturday.getMonth() + 1}/${Saturday.getDate()}`;
+
+      // 週番の表示更新
+      if (dutySchedule[sundayStr]) {
+        dutyText.textContent = dutySchedule[sundayStr].join('・');
+      } else {
+        dutyText.textContent = '未設定';
+      }
 
       for (let i = 0; i < 7; i++) {
         const date = new Date(currentSunday);
@@ -502,13 +569,19 @@
         if (i === 0) headerBg = 'bg-rose-50 text-rose-600';
         if (i === 6) headerBg = 'bg-sky-50 text-sky-600';
 
+        // 学校行事（年間予定）の取得
+        const eventTitle = schoolEvents[dateStr];
+
         dayCol.innerHTML = `
-          <div class="p-3 border-b border-slate-100 flex justify-between items-center ${headerBg} rounded-t-xl">
-            <div class="font-bold">
-              <span class="text-lg">${date.getDate()}</span>
-              <span class="text-xs ml-1">(${dayNames[i]})</span>
+          <div class="p-3 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1">
+            <div class="flex justify-between items-center">
+              <div class="font-bold">
+                <span class="text-lg">${date.getDate()}</span>
+                <span class="text-xs ml-1">(${dayNames[i]})</span>
+              </div>
+              ${isToday ? '<span class="text-[10px] bg-sky-600 text-white font-bold px-1.5 py-0.5 rounded">今日</span>' : ''}
             </div>
-            ${isToday ? '<span class="text-[10px] bg-sky-600 text-white font-bold px-1.5 py-0.5 rounded">今日</span>' : ''}
+            ${eventTitle ? `<div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-2 py-0.5 rounded tracking-tight text-center truncate" title="${eventTitle}"><i class="fa-solid fa-flag text-amber-600 mr-1"></i>${eventTitle}</div>` : ''}
           </div>
           <div class="p-2 flex-grow overflow-y-auto space-y-2 custom-scrollbar" id="day-${dateStr}">
           </div>
@@ -552,7 +625,105 @@
       }
     }
 
-    // --- 管理機能 ---
+    // --- CSV一括インポート処理 ---
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r\n|\n/);
+      return lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"(.*)"$/, '$1')));
+    }
+
+    // ① メンバーインポート
+    document.getElementById('csv-import-members').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file || !isUserAdmin) return;
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const rows = parseCSV(evt.target.result);
+        const batch = writeBatch(db);
+        let count = 0;
+        rows.forEach((row, idx) => {
+          if (idx === 0 && (row[0] === '氏名' || row[0] === 'name')) return; // ヘッダースキップ
+          const name = row[0];
+          if (name) {
+            batch.set(doc(db, 'members', name), { name });
+            count++;
+          }
+        });
+        await batch.commit();
+        showCSVStatus(`メンバー ${count} 名を一括登録しました！`);
+      };
+      reader.readAsText(file);
+    });
+
+    // ② 年間予定インポート
+    document.getElementById('csv-import-events').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file || !isUserAdmin) return;
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const rows = parseCSV(evt.target.result);
+        const batch = writeBatch(db);
+        let count = 0;
+        rows.forEach((row, idx) => {
+          if (idx === 0 && (row[0] === '日付' || row[0] === 'date')) return;
+          const [date, title] = row;
+          if (date && title) {
+            batch.set(doc(db, 'events', date), { title });
+            count++;
+          }
+        });
+        await batch.commit();
+        showCSVStatus(`年間予定 ${count} 件を一括登録しました！`);
+      };
+      reader.readAsText(file);
+    });
+
+    // ③ 週番インポート
+    document.getElementById('csv-import-duty').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file || !isUserAdmin) return;
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        const rows = parseCSV(evt.target.result);
+        const batch = writeBatch(db);
+        let count = 0;
+        rows.forEach((row, idx) => {
+          if (idx === 0 && (row[0] === '週開始日' || row[0] === 'date')) return;
+          const sundayDate = row[0];
+          const membersList = row.slice(1).filter(m => m !== '');
+          if (sundayDate && membersList.length > 0) {
+            batch.set(doc(db, 'duty', sundayDate), { members: membersList });
+            count++;
+          }
+        });
+        await batch.commit();
+        showCSVStatus(`週番スケジュール ${count} 週分を一括登録しました！`);
+      };
+      reader.readAsText(file);
+    });
+
+    function showCSVStatus(msg) {
+      const el = document.getElementById('csv-status-msg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 4000);
+    }
+
+    // CSVテンプレートダウンロード
+    document.getElementById('btn-download-csv-templates').addEventListener('click', () => {
+      const download = (filename, content) => {
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), content], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+      };
+
+      download('01_members_template.csv', '氏名\n青柳 太郎\n山田 太郎\n佐藤 花子\n');
+      setTimeout(() => download('02_events_template.csv', '日付,行事名\n2026-04-01,入学式\n2026-05-15,中間テスト\n'), 300);
+      setTimeout(() => download('03_duty_template.csv', '週開始日,担当1,担当2\n2026-04-05,青柳,佐藤\n2026-04-12,山田,鈴木\n'), 600);
+    });
+
+    // --- 管理機能手動 ---
     window.removeMember = async function(name) {
       if (!isUserAdmin) return;
       if (confirm(`「${name}」をメンバーリストから削除しますか？`)) {
@@ -623,7 +794,6 @@
         title.textContent = '予定の編集';
         document.getElementById('schedule-id').value = schedule.id;
 
-        // メンバー設定
         if (schedule.members && schedule.members.length > 1) {
           toggleMultipleMembers.checked = true;
           document.getElementById('single-member-container').classList.add('hidden');
@@ -640,7 +810,6 @@
           }
         }
 
-        // 日付設定
         toggleRangeDate.checked = false;
         document.getElementById('single-date-container').classList.remove('hidden');
         document.getElementById('range-date-container').classList.add('hidden');
@@ -693,7 +862,6 @@
 
       const editingId = document.getElementById('schedule-id').value;
       
-      // メンバー判定
       const isMultipleMembers = document.getElementById('input-multiple-members-toggle').checked;
       let targetMembers = [];
       if (isMultipleMembers) {
@@ -708,7 +876,6 @@
         return;
       }
 
-      // 日付判定
       const isRangeDate = document.getElementById('input-range-date-toggle').checked;
       let startDateStr = '';
       let endDateStr = '';
