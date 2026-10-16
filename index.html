@@ -356,7 +356,7 @@
     const DEFAULT_MEMBERS = ['青柳 太郎', '山田 太郎', '佐藤 花子'];
 
     let currentSunday = getSunday(new Date());
-    let members = [];
+    let members = []; // { name: string, order: number }
     let adminEmails = [];
     let schedules = [];
     let schoolEvents = {};
@@ -376,6 +376,18 @@
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
+    }
+
+    // 日付文字列 (2026/4/1 や 2026-4-1 など) を 2026-04-01 形式に統一変換
+    function normalizeDateString(dateStr) {
+      if (!dateStr) return '';
+      const clean = dateStr.replace(/\//g, '-').trim();
+      const parts = clean.split('-');
+      if (parts.length !== 3) return dateStr;
+      const y = parts[0];
+      const m = String(parts[1]).padStart(2, '0');
+      const d = String(parts[2]).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
 
     // --- 認証＆ドメインチェック ---
@@ -459,11 +471,17 @@
         renderAdminList();
       });
 
-      // メンバー
+      // メンバー（order 順にソート）
       onSnapshot(collection(db, 'members'), (snapshot) => {
-        members = snapshot.docs.map(doc => doc.data().name);
+        const rawMembers = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return { name: data.name || doc.id, order: data.order !== undefined ? data.order : 9999 };
+        });
+        rawMembers.sort((a, b) => a.order - b.order);
+        members = rawMembers.map(m => m.name);
+
         if (members.length === 0 && isUserAdmin) {
-          DEFAULT_MEMBERS.forEach(name => setDoc(doc(db, 'members', name), { name }));
+          DEFAULT_MEMBERS.forEach((name, idx) => setDoc(doc(db, 'members', name), { name, order: idx + 1 }));
         } else {
           renderMemberOptions();
         }
@@ -514,9 +532,9 @@
       filterSelect.innerHTML = '<option value="">全員を表示</option>' + members.map(m => `<option value="${m}">${m}</option>`).join('');
       filterSelect.value = currentFilter;
 
-      memberList.innerHTML = members.map(m => `
+      memberList.innerHTML = members.map((m, idx) => `
         <li class="px-3 py-1.5 flex justify-between items-center text-xs">
-          <span class="font-medium text-slate-700">${m}</span>
+          <span class="font-medium text-slate-700"><span class="text-slate-400 font-mono text-[10px] mr-2">${idx + 1}.</span>${m}</span>
           ${isUserAdmin ? `<button onclick="window.removeMember('${m}')" class="text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash"></i> 削除</button>` : ''}
         </li>
       `).join('');
@@ -569,7 +587,6 @@
         if (i === 0) headerBg = 'bg-rose-50 text-rose-600';
         if (i === 6) headerBg = 'bg-sky-50 text-sky-600';
 
-        // 学校行事（年間予定）の取得
         const eventTitle = schoolEvents[dateStr];
 
         dayCol.innerHTML = `
@@ -625,13 +642,13 @@
       }
     }
 
-    // --- CSV一括インポート処理 ---
+    // --- CSVパース関数 ---
     function parseCSV(text) {
       const lines = text.trim().split(/\r\n|\n/);
       return lines.map(line => line.split(',').map(cell => cell.trim().replace(/^"(.*)"$/, '$1')));
     }
 
-    // ① メンバーインポート
+    // ① メンバーインポート（順序番号 order を自動付与）
     document.getElementById('csv-import-members').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !isUserAdmin) return;
@@ -641,20 +658,20 @@
         const batch = writeBatch(db);
         let count = 0;
         rows.forEach((row, idx) => {
-          if (idx === 0 && (row[0] === '氏名' || row[0] === 'name')) return; // ヘッダースキップ
+          if (idx === 0 && (row[0] === '氏名' || row[0] === 'name')) return;
           const name = row[0];
           if (name) {
-            batch.set(doc(db, 'members', name), { name });
             count++;
+            batch.set(doc(db, 'members', name), { name, order: count });
           }
         });
         await batch.commit();
-        showCSVStatus(`メンバー ${count} 名を一括登録しました！`);
+        showCSVStatus(`メンバー ${count} 名をCSV通りの順序で一括登録しました！`);
       };
       reader.readAsText(file);
     });
 
-    // ② 年間予定インポート
+    // ② 年間予定インポート（日付フォーマットの自動正規化）
     document.getElementById('csv-import-events').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !isUserAdmin) return;
@@ -665,9 +682,10 @@
         let count = 0;
         rows.forEach((row, idx) => {
           if (idx === 0 && (row[0] === '日付' || row[0] === 'date')) return;
-          const [date, title] = row;
-          if (date && title) {
-            batch.set(doc(db, 'events', date), { title });
+          const [rawDate, title] = row;
+          const normDate = normalizeDateString(rawDate);
+          if (normDate && title) {
+            batch.set(doc(db, 'events', normDate), { title });
             count++;
           }
         });
@@ -677,7 +695,7 @@
       reader.readAsText(file);
     });
 
-    // ③ 週番インポート
+    // ③ 週番インポート（日付フォーマットの自動正規化）
     document.getElementById('csv-import-duty').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file || !isUserAdmin) return;
@@ -688,10 +706,11 @@
         let count = 0;
         rows.forEach((row, idx) => {
           if (idx === 0 && (row[0] === '週開始日' || row[0] === 'date')) return;
-          const sundayDate = row[0];
+          const rawDate = row[0];
+          const normDate = normalizeDateString(rawDate);
           const membersList = row.slice(1).filter(m => m !== '');
-          if (sundayDate && membersList.length > 0) {
-            batch.set(doc(db, 'duty', sundayDate), { members: membersList });
+          if (normDate && membersList.length > 0) {
+            batch.set(doc(db, 'duty', normDate), { members: membersList });
             count++;
           }
         });
@@ -705,7 +724,7 @@
       const el = document.getElementById('csv-status-msg');
       el.textContent = msg;
       el.classList.remove('hidden');
-      setTimeout(() => el.classList.add('hidden'), 4000);
+      setTimeout(() => el.classList.add('hidden'), 5000);
     }
 
     // CSVテンプレートダウンロード
@@ -719,8 +738,8 @@
       };
 
       download('01_members_template.csv', '氏名\n青柳 太郎\n山田 太郎\n佐藤 花子\n');
-      setTimeout(() => download('02_events_template.csv', '日付,行事名\n2026-04-01,入学式\n2026-05-15,中間テスト\n'), 300);
-      setTimeout(() => download('03_duty_template.csv', '週開始日,担当1,担当2\n2026-04-05,青柳,佐藤\n2026-04-12,山田,鈴木\n'), 600);
+      setTimeout(() => download('02_events_template.csv', '日付,行事名\n2026/04/01,入学式\n2026/05/15,中間テスト\n'), 300);
+      setTimeout(() => download('03_duty_template.csv', '週開始日,担当1,担当2\n2026/04/05,青柳,佐藤\n2026/04/12,山田,鈴木\n'), 600);
     });
 
     // --- 管理機能手動 ---
@@ -744,7 +763,8 @@
       const input = document.getElementById('input-new-member');
       const name = input.value.trim();
       if (name) {
-        await setDoc(doc(db, 'members', name), { name });
+        const nextOrder = members.length + 1;
+        await setDoc(doc(db, 'members', name), { name, order: nextOrder });
         input.value = '';
       }
     });
