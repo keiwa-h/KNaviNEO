@@ -591,16 +591,17 @@
         if (i === 6) headerBg = 'bg-sky-50 text-sky-600';
 
         const eventTitles = schoolEvents[dateStr] || [];
-        // ★ 変更点: 左揃え (text-left) ＆ 自動折り返し (whitespace-pre-wrap break-words) ★
+        // ★ 変更点: フラグ（旗）を最左部に配置（px-1 py-0.5 leading-tight）、パディング最小化 ★
         const eventsHtml = eventTitles.map(t => `
-          <div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-2 py-1 rounded tracking-tight text-left whitespace-pre-wrap break-words leading-tight" title="${t}">
-            <i class="fa-solid fa-flag text-amber-600 mr-1 shrink-0"></i>${t}
+          <div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-1 py-0.5 rounded tracking-tight text-left flex items-start gap-1 leading-tight break-words" title="${t}">
+            <i class="fa-solid fa-flag text-amber-600 text-[10px] mt-0.5 shrink-0"></i>
+            <span class="flex-grow">${t}</span>
           </div>
         `).join('');
 
         dayCol.innerHTML = `
-          <div class="p-3 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1.5">
-            <div class="flex justify-between items-center">
+          <div class="p-2 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1">
+            <div class="flex justify-between items-center px-1">
               <div class="font-bold">
                 <span class="text-lg">${date.getDate()}</span>
                 <span class="text-xs ml-1">(${dayNames[i]})</span>
