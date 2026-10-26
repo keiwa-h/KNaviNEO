@@ -139,6 +139,37 @@
     <p>KNaviNEO &copy; 敬和学園 勤怠・予定共有システム</p>
   </footer>
 
+  <!-- モーダル: 日別予定一覧（1行形式） -->
+  <div id="modal-day-detail" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 overflow-hidden border border-slate-200 max-h-[85vh] flex flex-col">
+      <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center shrink-0">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-calendar-day text-indigo-300 text-lg"></i>
+          <h3 id="day-detail-title" class="font-bold text-lg">日付の詳細予定一覧</h3>
+        </div>
+        <button id="btn-close-day-detail-header" class="bg-indigo-800 hover:bg-indigo-700 text-indigo-100 text-xs px-3 py-1.5 rounded-lg border border-indigo-600 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-house text-xs"></i>
+          <span>ホームへ</span>
+        </button>
+      </div>
+
+      <div class="p-6 overflow-y-auto space-y-4 custom-scrollbar flex-grow bg-slate-50">
+        <!-- 学校行事表示エリア -->
+        <div id="day-detail-events" class="space-y-1.5 hidden mb-2"></div>
+
+        <!-- 予定リスト（1行形式） -->
+        <div id="day-detail-list" class="space-y-2"></div>
+      </div>
+
+      <div class="px-6 py-3 bg-white border-t border-slate-200 flex justify-end shrink-0">
+        <button id="btn-close-day-detail-footer" class="px-4 py-2 bg-indigo-900 hover:bg-indigo-800 text-white text-sm font-medium rounded-lg shadow transition flex items-center gap-2">
+          <i class="fa-solid fa-house text-xs"></i>
+          <span>ホームへ戻る</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- モーダル: 予定の登録・編集 -->
   <div id="modal-schedule" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 overflow-hidden border border-slate-200">
@@ -601,12 +632,14 @@
           </div>
         `).join('');
 
+        // ★ 日付ヘッダーをクリック可能にし、拡大モーダルを開くイベントを追加 ★
         dayCol.innerHTML = `
-          <div class="p-2 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1">
+          <div class="p-2 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1 cursor-pointer hover:bg-slate-100/80 transition" onclick="window.openDayDetailModal('${dateStr}', '${dayNames[i]}')" title="クリックしてこの日の予定一覧（1行表示）を開く">
             <div class="flex justify-between items-center px-1">
-              <div class="font-bold">
+              <div class="font-bold flex items-center gap-1">
                 <span class="text-lg">${date.getDate()}</span>
-                <span class="text-xs ml-1">(${dayNames[i]})</span>
+                <span class="text-xs">(${dayNames[i]})</span>
+                <i class="fa-solid fa-up-right-and-down-left-from-center text-[10px] opacity-40 ml-1"></i>
               </div>
               ${isToday ? '<span class="text-[10px] bg-sky-600 text-white font-bold px-1.5 py-0.5 rounded">今日</span>' : ''}
             </div>
@@ -627,7 +660,7 @@
         if (daySchedules.length === 0) {
           container.innerHTML = `<p class="text-xs text-slate-300 text-center py-4">予定なし</p>`;
         } else {
-          // ★ ソート処理: 「終日」を一番上に、時間指定は開始時間が早い順 ★
+          // ソート処理: 「終日」を一番上に、時間指定は開始時間が早い順
           daySchedules.sort((a, b) => {
             if (a.isAllDay !== b.isAllDay) {
               return a.isAllDay ? -1 : 1;
@@ -662,6 +695,81 @@
         }
       }
     }
+
+    // --- ★ 日別詳細モーダル関数 ★ ---
+    window.openDayDetailModal = function(dateStr, dayName) {
+      const modal = document.getElementById('modal-day-detail');
+      const title = document.getElementById('day-detail-title');
+      const eventsContainer = document.getElementById('day-detail-events');
+      const listContainer = document.getElementById('day-detail-list');
+      const filterMember = document.getElementById('filter-member').value;
+
+      const [y, m, d] = dateStr.split('-');
+      title.textContent = `${y}年${parseInt(m)}月${parseInt(d)}日(${dayName}) の予定一覧`;
+
+      // 学校行事の表示
+      const events = schoolEvents[dateStr] || [];
+      if (events.length > 0) {
+        eventsContainer.innerHTML = events.map(t => `
+          <div class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 shadow-sm">
+            <i class="fa-solid fa-flag text-amber-600"></i>
+            <span>${t}</span>
+          </div>
+        `).join('');
+        eventsContainer.classList.remove('hidden');
+      } else {
+        eventsContainer.classList.add('hidden');
+      }
+
+      // 日別予定フィルタリング＆ソート
+      let daySchedules = schedules.filter(s => s.date === dateStr);
+      if (filterMember) {
+        daySchedules = daySchedules.filter(s => s.members && s.members.includes(filterMember));
+      }
+
+      daySchedules.sort((a, b) => {
+        if (a.isAllDay !== b.isAllDay) return a.isAllDay ? -1 : 1;
+        if (!a.isAllDay && !b.isAllDay) return (a.startTime || '').localeCompare(b.startTime || '');
+        return 0;
+      });
+
+      if (daySchedules.length === 0) {
+        listContainer.innerHTML = `<p class="text-sm text-slate-400 text-center py-12 bg-white rounded-xl border border-slate-200">登録されている予定はありません。</p>`;
+      } else {
+        listContainer.innerHTML = daySchedules.map(s => {
+          const style = TYPE_STYLES[s.type] || { bg: 'bg-slate-50', border: 'border-slate-200', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700' };
+          const timeStr = s.isAllDay ? '終日' : `${s.startTime}～${s.endTime}`;
+          const memberNames = (s.members || []).join(', ');
+
+          return `
+            <div class="${style.bg} border ${style.border} rounded-xl p-3.5 shadow-sm flex flex-wrap md:flex-nowrap items-center justify-between gap-3 ${isUserAdmin ? 'cursor-pointer hover:shadow-md' : ''} transition" ${isUserAdmin ? `onclick="window.editFromDayDetail('${s.id}')"` : ''}>
+              <div class="flex items-center gap-3 w-full md:w-auto">
+                <span class="${style.badgeBg} ${style.badgeText} text-xs px-2.5 py-1 rounded-md font-bold shrink-0">${s.type}</span>
+                <span class="font-bold text-slate-800 text-sm">${memberNames}</span>
+              </div>
+              <div class="flex items-center gap-3 text-xs text-slate-600 w-full md:w-auto justify-between md:justify-end ml-auto">
+                <span class="font-mono bg-white/80 px-2.5 py-1 rounded-md border border-slate-200/80 font-medium shrink-0"><i class="fa-regular fa-clock mr-1.5 text-slate-400"></i>${timeStr}</span>
+                ${s.note ? `<span class="text-slate-600 bg-white/80 px-2.5 py-1 rounded-md border border-slate-200/80 truncate max-w-[240px]" title="${s.note}"><i class="fa-solid fa-location-dot mr-1.5 text-slate-400"></i>${s.note}</span>` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      modal.classList.remove('hidden');
+    };
+
+    window.editFromDayDetail = function(scheduleId) {
+      document.getElementById('modal-day-detail').classList.add('hidden');
+      const targetSchedule = schedules.find(s => s.id === scheduleId);
+      if (targetSchedule) {
+        openScheduleModal(targetSchedule);
+      }
+    };
+
+    // モーダル閉じるイベント
+    document.getElementById('btn-close-day-detail-header').addEventListener('click', () => document.getElementById('modal-day-detail').classList.add('hidden'));
+    document.getElementById('btn-close-day-detail-footer').addEventListener('click', () => document.getElementById('modal-day-detail').classList.add('hidden'));
 
     // --- CSVパース関数 ---
     function parseCSV(text) {
