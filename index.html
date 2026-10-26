@@ -629,7 +629,8 @@
         } else {
           daySchedules.forEach(s => {
             const style = TYPE_STYLES[s.type] || { bg: 'bg-slate-50', border: 'border-slate-200', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700' };
-            const timeText = s.isAllDay ? '終日' : `${s.startTime}～${s.endTime}`;
+            // ★ 変更点: 終日の場合は時間を完全非表示にし、時間指定のみ表示する ★
+            const timeHtml = s.isAllDay ? '' : `<div class="text-slate-500 font-mono text-[11px]"><i class="fa-regular fa-clock mr-1"></i>${s.startTime}～${s.endTime}</div>`;
             const memberNames = (s.members || []).join(', ');
 
             const item = document.createElement('div');
@@ -643,9 +644,7 @@
                 <span class="font-bold text-slate-800 leading-snug break-words">${memberNames}</span>
                 <span class="${style.badgeBg} ${style.badgeText} text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0">${s.type}</span>
               </div>
-              <div class="text-slate-500 font-mono text-[11px]">
-                <i class="fa-regular fa-clock mr-1"></i>${timeText}
-              </div>
+              ${timeHtml}
               ${s.note ? `<div class="text-slate-600 text-[11px] bg-white/60 p-1.5 rounded border border-slate-100 break-words whitespace-normal"><i class="fa-solid fa-location-dot text-slate-400 mr-1"></i>${s.note}</div>` : ''}
             `;
             container.appendChild(item);
