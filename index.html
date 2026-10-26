@@ -627,9 +627,19 @@
         if (daySchedules.length === 0) {
           container.innerHTML = `<p class="text-xs text-slate-300 text-center py-4">予定なし</p>`;
         } else {
+          // ★ ソート処理: 「終日」を一番上に、時間指定は開始時間が早い順 ★
+          daySchedules.sort((a, b) => {
+            if (a.isAllDay !== b.isAllDay) {
+              return a.isAllDay ? -1 : 1;
+            }
+            if (!a.isAllDay && !b.isAllDay) {
+              return (a.startTime || '').localeCompare(b.startTime || '');
+            }
+            return 0;
+          });
+
           daySchedules.forEach(s => {
             const style = TYPE_STYLES[s.type] || { bg: 'bg-slate-50', border: 'border-slate-200', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700' };
-            // ★ 変更点: 終日の場合は時間を完全非表示にし、時間指定のみ表示する ★
             const timeHtml = s.isAllDay ? '' : `<div class="text-slate-500 font-mono text-[11px]"><i class="fa-regular fa-clock mr-1"></i>${s.startTime}～${s.endTime}</div>`;
             const memberNames = (s.members || []).join(', ');
 
