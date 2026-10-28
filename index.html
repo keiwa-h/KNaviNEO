@@ -114,6 +114,8 @@
         <span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 border border-teal-200">看護</span>
         <span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">介護</span>
         <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">出張</span>
+        <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">特休</span>
+        <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200">ドック</span>
         <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-300">その他</span>
       </div>
 
@@ -239,6 +241,8 @@
             <option value="看護休暇">看護休暇</option>
             <option value="介護休暇">介護休暇</option>
             <option value="出張">出張</option>
+            <option value="特別休暇">特別休暇</option>
+            <option value="人間ドック">人間ドック</option>
             <option value="その他">その他</option>
           </select>
         </div>
@@ -384,6 +388,8 @@
       '看護休暇': { bg: 'bg-teal-50', border: 'border-teal-200', badgeBg: 'bg-teal-100', badgeText: 'text-teal-800' },
       '介護休暇': { bg: 'bg-purple-50', border: 'border-purple-200', badgeBg: 'bg-purple-100', badgeText: 'text-purple-800' },
       '出張': { bg: 'bg-blue-50', border: 'border-blue-200', badgeBg: 'bg-blue-100', badgeText: 'text-blue-800' },
+      '特別休暇': { bg: 'bg-emerald-50', border: 'border-emerald-200', badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-800' },
+      '人間ドック': { bg: 'bg-indigo-50', border: 'border-indigo-200', badgeBg: 'bg-indigo-100', badgeText: 'text-indigo-800' },
       'その他': { bg: 'bg-slate-50', border: 'border-slate-300', badgeBg: 'bg-slate-200', badgeText: 'text-slate-800' }
     };
 
@@ -632,7 +638,6 @@
           </div>
         `).join('');
 
-        // ★ 日付ヘッダーをクリック可能にし、拡大モーダルを開くイベントを追加 ★
         dayCol.innerHTML = `
           <div class="p-2 border-b border-slate-100 ${headerBg} rounded-t-xl space-y-1 cursor-pointer hover:bg-slate-100/80 transition" onclick="window.openDayDetailModal('${dateStr}', '${dayNames[i]}')" title="クリックしてこの日の予定一覧（1行表示）を開く">
             <div class="flex justify-between items-center px-1">
